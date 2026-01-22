@@ -1,5 +1,5 @@
-# Makefile for GainMatch project
-PROJECT_NAME := GainMatch
+# Makefile for CAGainMatch project
+PROJECT_NAME := CAGainMatch
 
 # Directories
 SRC_DIR  := src
@@ -21,7 +21,7 @@ TARGET   := $(BIN_DIR)/$(PROJECT_NAME)
 SOURCES  := $(wildcard $(SRC_DIR)/*.cpp)
 
 # Object collections per binary
-OBJECTS := $(COMMON_OBJECTS) $(OBJ_DIR)/GainMatch.o
+OBJECTS := $(COMMON_OBJECTS) $(OBJ_DIR)/$(PROJECT_NAME).o
 
 # Default target
 all: $(TARGET)

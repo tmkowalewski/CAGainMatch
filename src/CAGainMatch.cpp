@@ -10,7 +10,7 @@
 #include <TF1.h>
 
 // Project Includes
-#include "GainMatch.hpp"
+#include "CAGainMatch.hpp"
 
 // Configuration
 #define DEBUG 0
@@ -100,11 +100,30 @@ int main(int argc, char *argv[])
     printf("Calculating gain match parameters...\n");
     auto params = CalculateGainMatchParameters(ref_centroids, inp_centroids);
 
+    // Output Gain Match Parameters to Output File
+    FILE *out_file = fopen(output_filename.c_str(), "w");
+    if (!out_file)
+    {
+        std::cerr << "Error opening output file for writing" << std::endl;
+        return 1;
+    }
+
+    fprintf(out_file, "# Channel\tGain\tOffset\n");
+    fprintf(out_file, "# Clover Cross\n");
+    for (size_t ch = 0; ch < params.size(); ++ch)
+    {
+        fprintf(out_file, "%zu\t%.10f\t%.10f\n", ch, params[ch].first, params[ch].second);
+    }
+    fclose(out_file);
+    printf("Gain match parameters written to %s!\n", output_filename.c_str());
+
     // Close input files
     ref_file->Close();
     delete ref_file;
     inp_file->Close();
     delete inp_file;
+
+    printf("Gain matching completed successfully!\n");
 
     return 0;
 }
