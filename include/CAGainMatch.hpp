@@ -12,9 +12,16 @@
 #include <TSpectrum.h>
 
 // Project Includes
+#include "CASort/CAUtilities.hpp"
 
 namespace GainMatchConfig
 {
+    enum class ReferenceFileType
+    {
+        ROOT,
+        CAPK
+    };
+
     // Histogram Config
     inline const char* kAmplitudeHistogramName = "clover_cross/cc_amp"; // Path to the amplitude histogram within the root file
     inline constexpr unsigned int kNumChannels = 16; // Number of channels in the histogram
@@ -186,8 +193,7 @@ FindMatchingPeaks2D(std::vector<std::vector<double>>& peaks)
     return all_matching_peaks_per_channel;
 }
 
-std::pair<double, double>
-GetPeakCentroids1D(TH1D* hist, std::pair<double, double>& matched_peaks)
+std::pair<double, double> GetPeakCentroids1D(TH1D* hist, std::pair<double, double>& matched_peaks)
 {
     using namespace GainMatchConfig;
 
@@ -230,9 +236,7 @@ GetPeakCentroids1D(TH1D* hist, std::pair<double, double>& matched_peaks)
     return centroid_pair;
 }
 
-std::vector<std::pair<double, double>>
-GetPeakCentroids2D(TH2D* hist,
-    std::vector<std::pair<double, double>>& matched_peaks)
+std::vector<std::pair<double, double>> GetPeakCentroids2D(TH2D* hist, std::vector<std::pair<double, double>>& matched_peaks)
 {
     std::vector<std::pair<double, double>> all_centroids_per_channel(
         GainMatchConfig::kNumChannels);
@@ -251,9 +255,7 @@ GetPeakCentroids2D(TH2D* hist,
     return all_centroids_per_channel;
 }
 
-std::vector<std::pair<double, double>> CalculateGainMatchParameters(
-    std::vector<std::pair<double, double>>& ref_centroids,
-    std::vector<std::pair<double, double>>& inp_centroids)
+std::vector<std::pair<double, double>> CalculateGainMatchParameters(std::vector<std::pair<double, double>>& ref_centroids, std::vector<std::pair<double, double>>& inp_centroids)
 {
     std::vector<std::pair<double, double>> all_gainmatch_params; // has (gain, offset) pair for every channel
 
@@ -282,9 +284,30 @@ std::vector<std::pair<double, double>> CalculateGainMatchParameters(
     return all_gainmatch_params;
 }
 
-void WriteParamatersToFile(
-    const std::string& output_filename,
-    const std::vector<std::pair<double, double>>& params)
+std::vector<std::pair<double, double>> LoadPeaksFromCAPKSFile(const std::string& filename)
+{
+    std::vector<std::pair<double, double>> centroids;
+
+    auto raw_data = CAUtilities::ReadCAFile(filename);
+    for (const auto& module_data : raw_data)
+    {
+        for (const auto& channel_data : module_data)
+        {
+            if (channel_data.size() < 3)
+            {
+                std::cerr << "Error: Not enough data in CAPKS file for channel!" << std::endl;
+                continue;
+            }
+            double offset = channel_data[1];
+            double gain = channel_data[2];
+            centroids.push_back(std::make_pair(offset, gain));
+        }
+    }
+
+    return centroids;
+}
+
+void WriteParamatersToFile(const std::string& output_filename, const std::vector<std::pair<double, double>>& params)
 {
     FILE* out_file = fopen(output_filename.c_str(), "w");
     if (!out_file)

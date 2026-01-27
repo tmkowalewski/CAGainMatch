@@ -1,6 +1,8 @@
 // C++ includes
 #include <iostream>
 #include <memory>
+#include <fstream>
+#include <sstream>
 
 // ROOT Includes
 #include <TF1.h>
@@ -40,35 +42,69 @@ int main(int argc, char* argv[])
 
     using namespace GainMatchConfig;
 
-    // Open Files
+    /* #region Open Files */
 
-    auto ref_file = TFile::Open(reference_filename.c_str(), "READ");
-    if (!ref_file)
+    TFile* ref_file = nullptr;
+    ReferenceFileType reference_file_type;
+    if (reference_filename.rfind(".root") != std::string::npos)
     {
-        std::cerr << "Error opening reference file" << std::endl;
+        printf("Opening reference ROOT file: %s\n", reference_filename.c_str());
+        ref_file = TFile::Open(reference_filename.c_str(), "READ");
+        if (!ref_file)
+        {
+            std::cerr << "Error opening reference file" << std::endl;
+            return 1;
+        }
+        reference_file_type = ReferenceFileType::ROOT;
+    }
+    else if (reference_filename.rfind(".capks") != std::string::npos) // Clover Array Peaks File
+    {
+        printf("Reference file is a Clover Array Peaks file, will load peaks from it: %s\n", reference_filename.c_str());
+        reference_file_type = ReferenceFileType::CAPK;
+    }
+    else
+    {
+        std::cerr << "Error: Unsupported reference file format. Please provide a \".root\" or \".capk\" file." << std::endl;
         return 1;
     }
 
-    auto inp_file = TFile::Open(input_filename.c_str(), "READ");
-    if (!inp_file)
+    TFile* inp_file = nullptr;
+    if (input_filename.rfind(".root") != std::string::npos)
     {
-        std::cerr << "Error opening input file" << std::endl;
+        inp_file = TFile::Open(input_filename.c_str(), "READ");
+        if (!inp_file)
+        {
+            std::cerr << "Error opening input file" << std::endl;
+            return 1;
+        }
+    }
+    else if (input_filename.rfind(".cags") != std::string::npos)
+    {
+        std::cerr << "Error: .cags files are not supported as input files. Please provide a .root file." << std::endl;
+        return 1;
+    }
+    else
+    {
+        std::cerr << "Error: Unsupported input file format. Please provide a .root file." << std::endl;
         return 1;
     }
 
-    // Get Histograms
+    /* #endregion Open Files */
 
-    auto ref_hist =
-        dynamic_cast<TH2D*>(ref_file->Get(kAmplitudeHistogramName));
-    if (!ref_hist)
+    /* #region Get Histograms */
+    TH2D* ref_hist = nullptr;
+    if (reference_file_type == ReferenceFileType::ROOT)
     {
-        std::cerr << "Error retrieving reference histogram" << std::endl;
-        return 1;
+        ref_hist = dynamic_cast<TH2D*>(ref_file->Get(kAmplitudeHistogramName));
+        if (!ref_hist)
+        {
+            std::cerr << "Error retrieving reference histogram" << std::endl;
+            return 1;
+        }
+        ref_hist->RebinX(kRebinFactor); // Rebin to make peakfinding easier
     }
-    ref_hist->RebinX(kRebinFactor); // Rebin to make peakfinding easier
 
-    auto inp_hist =
-        dynamic_cast<TH2D*>(inp_file->Get(kAmplitudeHistogramName));
+    auto inp_hist = dynamic_cast<TH2D*>(inp_file->Get(kAmplitudeHistogramName));
     if (!inp_hist)
 
     {
@@ -77,26 +113,43 @@ int main(int argc, char* argv[])
     }
     inp_hist->RebinX(kRebinFactor); // Rebin to make peakfinding easier
 
+    /* #endregion Get Histograms */
+
     // Perform background subtraction to give peak finding a better chance
     printf("Performing background subtraction...\n");
-    BackgroundSubtraction2D(ref_hist);
+    if (reference_file_type == ReferenceFileType::ROOT)
+        BackgroundSubtraction2D(ref_hist);
     BackgroundSubtraction2D(inp_hist);
 
     // Find Peaks
     printf("Finding peaks in reference histogram: %s\n", ref_hist->GetName());
-    auto ref_all_peaks = FindAllPeaks2D(ref_hist);
+    std::vector<std::vector<double>> ref_all_peaks;
+    if (reference_file_type == ReferenceFileType::ROOT)
+        ref_all_peaks = FindAllPeaks2D(ref_hist);
     printf("Finding peaks in input histogram: %s\n", inp_hist->GetName());
     auto inp_all_peaks = FindAllPeaks2D(inp_hist);
 
     // Find matching peaks based on expected centroid ratio
     printf("Finding matching peaks in reference histogram...\n");
-    auto ref_matched_peaks = FindMatchingPeaks2D(ref_all_peaks);
+    std::vector<std::pair<double, double>> ref_matched_peaks;
+    if (reference_file_type == ReferenceFileType::ROOT)
+        ref_matched_peaks = FindMatchingPeaks2D(ref_all_peaks);
     printf("Finding matching peaks in input histogram...\n");
     auto inp_matched_peaks = FindMatchingPeaks2D(inp_all_peaks);
 
     // Fit the matched peaks to get more precise centroids
     printf("Fitting matched peaks in reference histogram...\n");
-    auto ref_centroids = GetPeakCentroids2D(ref_hist, ref_matched_peaks);
+    std::vector<std::pair<double, double>> ref_centroids;
+    if (reference_file_type == ReferenceFileType::ROOT)
+    {
+        ref_centroids = GetPeakCentroids2D(ref_hist, ref_matched_peaks);
+    }
+    else if (reference_file_type == ReferenceFileType::CAPK)
+    {
+        ref_centroids = LoadPeaksFromCAPKSFile(reference_filename);
+    }
+
+
     printf("Fitting matched peaks in input histogram...\n");
     auto inp_centroids = GetPeakCentroids2D(inp_hist, inp_matched_peaks);
 
@@ -105,7 +158,21 @@ int main(int argc, char* argv[])
     auto params = CalculateGainMatchParameters(ref_centroids, inp_centroids);
 
     // Output Gain Match Parameters to Output File
-    FILE* out_file = fopen(output_filename.c_str(), "w");
+    std::string final_output_filename = output_filename;
+    if (output_filename.size() < 5 || output_filename.substr(output_filename.size() - 5) != ".cags")
+    {
+        size_t dot_pos = output_filename.rfind('.');
+        if (dot_pos != std::string::npos)
+        {
+            final_output_filename = output_filename.substr(0, dot_pos) + ".cags";
+        }
+        else
+        {
+            final_output_filename = output_filename + ".cags";
+        }
+    }
+
+    FILE* out_file = fopen(final_output_filename.c_str(), "w");
     if (!out_file)
     {
         std::cerr << "Error opening output file for writing" << std::endl;
@@ -120,11 +187,14 @@ int main(int argc, char* argv[])
             params[ch].second);
     }
     fclose(out_file);
-    printf("Gain match parameters written to %s!\n", output_filename.c_str());
+    printf("Gain match parameters written to %s!\n", final_output_filename.c_str());
 
     // Close input files
-    ref_file->Close();
-    delete ref_file;
+    if (reference_file_type == ReferenceFileType::ROOT)
+    {
+        ref_file->Close();
+        delete ref_file;
+    }
     inp_file->Close();
     delete inp_file;
 
