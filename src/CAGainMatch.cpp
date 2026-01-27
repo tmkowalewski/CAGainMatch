@@ -3,11 +3,11 @@
 #include <memory>
 
 // ROOT Includes
+#include <TF1.h>
 #include <TFile.h>
 #include <TH2D.h>
-#include <TSpectrum.h>
 #include <TMath.h>
-#include <TF1.h>
+#include <TSpectrum.h>
 
 // Project Includes
 #include "CAGainMatch.hpp"
@@ -15,12 +15,12 @@
 // Configuration
 #define DEBUG 0
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
     // Introduction
-    if (argc != 4)
-    {
-        std::cerr << "Usage: " << argv[0] << " <reference file> <input file> <output file>" << std::endl;
+    if (argc != 4) {
+        std::cerr << "Usage: " << argv[0]
+            << " <reference file> <input file> <output file>"
+            << std::endl;
         return 1;
     }
 
@@ -41,30 +41,29 @@ int main(int argc, char *argv[])
     // Open Files
 
     auto ref_file = TFile::Open(reference_filename.c_str(), "READ");
-    if (!ref_file)
-    {
+    if (!ref_file) {
         std::cerr << "Error opening reference file" << std::endl;
         return 1;
     }
 
     auto inp_file = TFile::Open(input_filename.c_str(), "READ");
-    if (!inp_file)
-    {
+    if (!inp_file) {
         std::cerr << "Error opening input file" << std::endl;
         return 1;
     }
 
     // Get Histograms
 
-    auto ref_hist = dynamic_cast<TH2D *>(ref_file->Get(kAmplitudeHistogramName));
-    if (!ref_hist)
-    {
+    auto ref_hist =
+        dynamic_cast<TH2D*>(ref_file->Get(kAmplitudeHistogramName));
+    if (!ref_hist) {
         std::cerr << "Error retrieving reference histogram" << std::endl;
         return 1;
     }
     ref_hist->RebinX(kRebinFactor); // Rebin to make peakfinding easier
 
-    auto inp_hist = dynamic_cast<TH2D *>(inp_file->Get(kAmplitudeHistogramName));
+    auto inp_hist =
+        dynamic_cast<TH2D*>(inp_file->Get(kAmplitudeHistogramName));
     if (!inp_hist)
 
     {
@@ -101,18 +100,17 @@ int main(int argc, char *argv[])
     auto params = CalculateGainMatchParameters(ref_centroids, inp_centroids);
 
     // Output Gain Match Parameters to Output File
-    FILE *out_file = fopen(output_filename.c_str(), "w");
-    if (!out_file)
-    {
+    FILE* out_file = fopen(output_filename.c_str(), "w");
+    if (!out_file) {
         std::cerr << "Error opening output file for writing" << std::endl;
         return 1;
     }
 
-    fprintf(out_file, "# Channel\tGain\tOffset\n");
+    fprintf(out_file, "# Channel\tOffset\tGain\n");
     fprintf(out_file, "# Clover Cross\n");
-    for (size_t ch = 0; ch < params.size(); ++ch)
-    {
-        fprintf(out_file, "%zu\t%.10f\t%.10f\n", ch, params[ch].first, params[ch].second);
+    for (size_t ch = 0; ch < params.size(); ++ch) {
+        fprintf(out_file, "%zu\t%.10f\t%.10f\n", ch, params[ch].first,
+            params[ch].second);
     }
     fclose(out_file);
     printf("Gain match parameters written to %s!\n", output_filename.c_str());
