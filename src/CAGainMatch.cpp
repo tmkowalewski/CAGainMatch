@@ -15,9 +15,11 @@
 // Configuration
 #define DEBUG 0
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
     // Introduction
-    if (argc != 4) {
+    if (argc != 4)
+    {
         std::cerr << "Usage: " << argv[0]
             << " <reference file> <input file> <output file>"
             << std::endl;
@@ -41,13 +43,15 @@ int main(int argc, char* argv[]) {
     // Open Files
 
     auto ref_file = TFile::Open(reference_filename.c_str(), "READ");
-    if (!ref_file) {
+    if (!ref_file)
+    {
         std::cerr << "Error opening reference file" << std::endl;
         return 1;
     }
 
     auto inp_file = TFile::Open(input_filename.c_str(), "READ");
-    if (!inp_file) {
+    if (!inp_file)
+    {
         std::cerr << "Error opening input file" << std::endl;
         return 1;
     }
@@ -56,7 +60,8 @@ int main(int argc, char* argv[]) {
 
     auto ref_hist =
         dynamic_cast<TH2D*>(ref_file->Get(kAmplitudeHistogramName));
-    if (!ref_hist) {
+    if (!ref_hist)
+    {
         std::cerr << "Error retrieving reference histogram" << std::endl;
         return 1;
     }
@@ -101,14 +106,16 @@ int main(int argc, char* argv[]) {
 
     // Output Gain Match Parameters to Output File
     FILE* out_file = fopen(output_filename.c_str(), "w");
-    if (!out_file) {
+    if (!out_file)
+    {
         std::cerr << "Error opening output file for writing" << std::endl;
         return 1;
     }
 
     fprintf(out_file, "# Channel\tOffset\tGain\n");
     fprintf(out_file, "# Clover Cross\n");
-    for (size_t ch = 0; ch < params.size(); ++ch) {
+    for (size_t ch = 0; ch < params.size(); ++ch)
+    {
         fprintf(out_file, "%zu\t%.10f\t%.10f\n", ch, params[ch].first,
             params[ch].second);
     }

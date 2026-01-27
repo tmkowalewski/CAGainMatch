@@ -13,7 +13,8 @@
 
 // Project Includes
 
-namespace GainMatchConfig {
+namespace GainMatchConfig
+{
     // Histogram Config
     inline const char* kAmplitudeHistogramName = "clover_cross/cc_amp"; // Path to the amplitude histogram within the root file
     inline constexpr unsigned int kNumChannels = 16; // Number of channels in the histogram
@@ -39,7 +40,8 @@ namespace GainMatchConfig {
 
 } // namespace GainMatchConfig
 
-TH1D* BackgroundSubtraction1D(TH1D* hist) {
+TH1D* BackgroundSubtraction1D(TH1D* hist)
+{
     using namespace GainMatchConfig;
     auto spectrum = new TSpectrum(kMaxPeaks);
     auto bg =
@@ -52,7 +54,8 @@ TH1D* BackgroundSubtraction1D(TH1D* hist) {
     return hist;
 }
 
-TH2D* BackgroundSubtraction2D(TH2D* hist) {
+TH2D* BackgroundSubtraction2D(TH2D* hist)
+{
     for (size_t ch = 0; ch < hist->GetNbinsY();
         ++ch) // Loop over each bin in Y (channel)
     {
@@ -68,7 +71,8 @@ TH2D* BackgroundSubtraction2D(TH2D* hist) {
     return hist;
 }
 
-std::vector<double> FindAllPeaks1D(TH1D* hist) {
+std::vector<double> FindAllPeaks1D(TH1D* hist)
+{
     using namespace GainMatchConfig;
     std::vector<double> all_peaks; // All peaks found in the search range
 
@@ -80,14 +84,16 @@ std::vector<double> FindAllPeaks1D(TH1D* hist) {
     auto peak_pos = spectrum->GetPositionX();
 
     all_peaks.reserve(n_found);
-    for (size_t p = 0; p < n_found; ++p) {
+    for (size_t p = 0; p < n_found; ++p)
+    {
         all_peaks.push_back(peak_pos[p]);
     }
     std::sort(all_peaks.begin(), all_peaks.end());
 
 #if DEBUG >= 2
     printf("Found %u peak(s):\n", n_found); // Channel 0 is in bin 1
-    for (size_t p = 0; p < all_peaks.size(); ++p) {
+    for (size_t p = 0; p < all_peaks.size(); ++p)
+    {
         printf("%.3f, ", all_peaks[p]); // For whatever reason we don't have to
         // multiply by kRebinFactor here
     }
@@ -99,7 +105,8 @@ std::vector<double> FindAllPeaks1D(TH1D* hist) {
     return all_peaks;
 }
 
-std::vector<std::vector<double>> FindAllPeaks2D(TH2D* hist) {
+std::vector<std::vector<double>> FindAllPeaks2D(TH2D* hist)
+{
     std::vector<std::vector<double>> all_peaks_per_channel(
         GainMatchConfig::kNumChannels);
 
@@ -118,7 +125,8 @@ std::vector<std::vector<double>> FindAllPeaks2D(TH2D* hist) {
     return all_peaks_per_channel;
 }
 
-std::pair<double, double> FindMatchingPeaks1D(std::vector<double>& peaks) {
+std::pair<double, double> FindMatchingPeaks1D(std::vector<double>& peaks)
+{
     std::pair<double, double> matching_peaks;
 
     double best_ratio = 0.0;
@@ -126,14 +134,17 @@ std::pair<double, double> FindMatchingPeaks1D(std::vector<double>& peaks) {
 
     // Look through all combinations of peaks for this channel
     using namespace GainMatchConfig;
-    for (size_t i = 0; i < peaks.size(); ++i) {
-        for (size_t j = 0; j < i; ++j) {
+    for (size_t i = 0; i < peaks.size(); ++i)
+    {
+        for (size_t j = 0; j < i; ++j)
+        {
             auto ratio = peaks[i] / peaks[j];
             if (std::abs(ratio - kPeakCentroidRatio) / kPeakCentroidRatio <
                 kPeakRatioTolerance) // Allow tolerance about the expected ratio
             {
                 if (std::abs(ratio - kPeakCentroidRatio) <
-                    std::abs(best_ratio - kPeakCentroidRatio)) {
+                    std::abs(best_ratio - kPeakCentroidRatio))
+                {
                     best_ratio = ratio;
                     best_pair = std::make_pair(
                         peaks[j], peaks[i]); // Store as (low, high)
@@ -146,10 +157,12 @@ std::pair<double, double> FindMatchingPeaks1D(std::vector<double>& peaks) {
             }
         }
     }
-    if (best_pair.first > 0 && best_pair.second > 0) {
+    if (best_pair.first > 0 && best_pair.second > 0)
+    {
         matching_peaks = best_pair;
     }
-    else {
+    else
+    {
         printf("No matching peaks found within tolerance (%f)\n",
             kPeakRatioTolerance);
     }
@@ -158,10 +171,12 @@ std::pair<double, double> FindMatchingPeaks1D(std::vector<double>& peaks) {
 }
 
 std::vector<std::pair<double, double>>
-FindMatchingPeaks2D(std::vector<std::vector<double>>& peaks) {
+FindMatchingPeaks2D(std::vector<std::vector<double>>& peaks)
+{
     std::vector<std::pair<double, double>> all_matching_peaks_per_channel(
         GainMatchConfig::kNumChannels);
-    for (size_t ch = 0; ch < peaks.size(); ++ch) {
+    for (size_t ch = 0; ch < peaks.size(); ++ch)
+    {
     #if DEBUG >= 2
         printf("Finding matching peaks in channel %zu\n", ch);
     #endif
@@ -172,13 +187,15 @@ FindMatchingPeaks2D(std::vector<std::vector<double>>& peaks) {
 }
 
 std::pair<double, double>
-GetPeakCentroids1D(TH1D* hist, std::pair<double, double>& matched_peaks) {
+GetPeakCentroids1D(TH1D* hist, std::pair<double, double>& matched_peaks)
+{
     using namespace GainMatchConfig;
 
     std::pair<double, double> centroid_pair(-1.0, -1.0);
     bool got_first = false;
 
-    for (auto& peak_pos : { matched_peaks.first, matched_peaks.second }) {
+    for (auto& peak_pos : { matched_peaks.first, matched_peaks.second })
+    {
         double peak_height = hist->GetBinContent(hist->FindBin(peak_pos));
         double fit_min = peak_pos - kFitBounds * kPeakSigma;
         double fit_max = peak_pos + kFitBounds * kPeakSigma;
@@ -193,11 +210,13 @@ GetPeakCentroids1D(TH1D* hist, std::pair<double, double>& matched_peaks) {
         hist->Fit(gaus, "QLMRES0", "", fit_min, fit_max);
         auto mean = gaus->GetParameter(1);
 
-        if (!got_first) {
+        if (!got_first)
+        {
             centroid_pair.first = mean;
             got_first = true;
         }
-        else {
+        else
+        {
             centroid_pair.second = mean;
         }
 
@@ -213,11 +232,13 @@ GetPeakCentroids1D(TH1D* hist, std::pair<double, double>& matched_peaks) {
 
 std::vector<std::pair<double, double>>
 GetPeakCentroids2D(TH2D* hist,
-    std::vector<std::pair<double, double>>& matched_peaks) {
+    std::vector<std::pair<double, double>>& matched_peaks)
+{
     std::vector<std::pair<double, double>> all_centroids_per_channel(
         GainMatchConfig::kNumChannels);
 
-    for (size_t ch = 0; ch < matched_peaks.size(); ++ch) {
+    for (size_t ch = 0; ch < matched_peaks.size(); ++ch)
+    {
     #if DEBUG >= 2
         printf("Getting centroids for channel %zu\n", ch);
     #endif
@@ -232,11 +253,12 @@ GetPeakCentroids2D(TH2D* hist,
 
 std::vector<std::pair<double, double>> CalculateGainMatchParameters(
     std::vector<std::pair<double, double>>& ref_centroids,
-    std::vector<std::pair<double, double>>& inp_centroids) {
-    std::vector<std::pair<double, double>>
-        all_gainmatch_params; // has (gain, offset) pair for every channel
+    std::vector<std::pair<double, double>>& inp_centroids)
+{
+    std::vector<std::pair<double, double>> all_gainmatch_params; // has (gain, offset) pair for every channel
 
-    if (ref_centroids.size() != inp_centroids.size()) {
+    if (ref_centroids.size() != inp_centroids.size())
+    {
         std::cerr
             << "Error: Mismatched number of fitted peaks between reference "
             "and input!"
@@ -245,7 +267,8 @@ std::vector<std::pair<double, double>> CalculateGainMatchParameters(
     }
 
     size_t n_peaks = std::min(ref_centroids.size(), inp_centroids.size());
-    for (size_t i = 0; i < n_peaks; ++i) {
+    for (size_t i = 0; i < n_peaks; ++i)
+    {
         double ref_low = ref_centroids[i].first;
         double ref_high = ref_centroids[i].second;
         double input_low = inp_centroids[i].first;
@@ -257,6 +280,28 @@ std::vector<std::pair<double, double>> CalculateGainMatchParameters(
         printf("Channel %zu: Offset = %.6f, Gain = %.10f\n", i, offset, gain);
     }
     return all_gainmatch_params;
+}
+
+void WriteParamatersToFile(
+    const std::string& output_filename,
+    const std::vector<std::pair<double, double>>& params)
+{
+    FILE* out_file = fopen(output_filename.c_str(), "w");
+    if (!out_file)
+    {
+        std::cerr << "Error opening output file for writing" << std::endl;
+        return;
+    }
+
+    fprintf(out_file, "# Channel\tOffset\tGain\n");
+    fprintf(out_file, "# Clover Cross\n");
+    for (size_t ch = 0; ch < params.size(); ++ch)
+    {
+        fprintf(out_file, "%zu\t%.10f\t%.10f\n", ch, params[ch].first,
+            params[ch].second);
+    }
+    fclose(out_file);
+    printf("Gain match parameters written to %s!\n", output_filename.c_str());
 }
 
 #endif // GAINMATCH_HPP
