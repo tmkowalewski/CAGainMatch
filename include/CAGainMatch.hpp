@@ -14,6 +14,9 @@
 // Project Includes
 #include "CASort/CAUtilities.hpp"
 
+// Configuration
+#define DEBUG 1
+
 namespace GainMatchConfig
 {
     enum class ReferenceFileType
@@ -51,8 +54,7 @@ TH1D* BackgroundSubtraction1D(TH1D* hist)
 {
     using namespace GainMatchConfig;
     auto spectrum = new TSpectrum(kMaxPeaks);
-    auto bg =
-        spectrum->Background(hist, kBackgroundSmoothing, kBackgroundOptions);
+    auto bg = spectrum->Background(hist, kBackgroundSmoothing, kBackgroundOptions);
     hist->Add(bg, -1);
 
     delete bg;
@@ -63,14 +65,12 @@ TH1D* BackgroundSubtraction1D(TH1D* hist)
 
 TH2D* BackgroundSubtraction2D(TH2D* hist)
 {
-    for (size_t ch = 0; ch < hist->GetNbinsY();
-        ++ch) // Loop over each bin in Y (channel)
+    for (size_t ch = 0; ch < hist->GetNbinsY(); ++ch) // Loop over each bin in Y (channel)
     {
         auto proj = hist->ProjectionX("_px", ch + 1, ch + 1);
         proj = BackgroundSubtraction1D(proj);
 
-        for (int i = 0; i <= proj->GetNbinsX();
-            ++i) // Copy back to original 2D histogram
+        for (int i = 0; i <= proj->GetNbinsX(); ++i) // Copy back to original 2D histogram
             hist->SetBinContent(ch + 1, i, proj->GetBinContent(i));
         delete proj;
     }
@@ -85,8 +85,7 @@ std::vector<double> FindAllPeaks1D(TH1D* hist)
 
     auto spectrum = new TSpectrum(kMaxPeaks);
 
-    hist->GetXaxis()->SetRangeUser(kPeakSearchRange.first,
-        kPeakSearchRange.second); // Set search range
+    hist->GetXaxis()->SetRangeUser(kPeakSearchRange.first, kPeakSearchRange.second); // Set search range
     auto n_found = spectrum->Search(hist, kPeakSigma, "", kPeakThreshold);
     auto peak_pos = spectrum->GetPositionX();
 
@@ -101,8 +100,7 @@ std::vector<double> FindAllPeaks1D(TH1D* hist)
     printf("Found %u peak(s):\n", n_found); // Channel 0 is in bin 1
     for (size_t p = 0; p < all_peaks.size(); ++p)
     {
-        printf("%.3f, ", all_peaks[p]); // For whatever reason we don't have to
-        // multiply by kRebinFactor here
+        printf("%.3f, ", all_peaks[p]); // For whatever reason we don't have to multiply by kRebinFactor here
     }
     printf("\n");
 #endif
@@ -114,14 +112,12 @@ std::vector<double> FindAllPeaks1D(TH1D* hist)
 
 std::vector<std::vector<double>> FindAllPeaks2D(TH2D* hist)
 {
-    std::vector<std::vector<double>> all_peaks_per_channel(
-        GainMatchConfig::kNumChannels);
+    std::vector<std::vector<double>> all_peaks_per_channel(GainMatchConfig::kNumChannels);
 
     for (size_t ch = 0; ch < hist->GetNbinsY(); ++ch) // Loop over each channel
     {
     #if DEBUG >= 2
-        printf("Finding peaks in channel %zu (bin %zu)\n", ch,
-            ch + 1); // Channel 0 is in bin 1
+        printf("Finding peaks in channel %zu (bin %zu)\n", ch, ch + 1); // Channel 0 is in bin 1
     #endif
         auto hist_proj = hist->ProjectionX("_px", ch + 1, ch + 1);
         auto channel_peaks = FindAllPeaks1D(hist_proj);
@@ -146,19 +142,15 @@ std::pair<double, double> FindMatchingPeaks1D(std::vector<double>& peaks)
         for (size_t j = 0; j < i; ++j)
         {
             auto ratio = peaks[i] / peaks[j];
-            if (std::abs(ratio - kPeakCentroidRatio) / kPeakCentroidRatio <
-                kPeakRatioTolerance) // Allow tolerance about the expected ratio
+            if (std::abs(ratio - kPeakCentroidRatio) / kPeakCentroidRatio < kPeakRatioTolerance) // Allow tolerance about the expected ratio
             {
                 if (std::abs(ratio - kPeakCentroidRatio) <
                     std::abs(best_ratio - kPeakCentroidRatio))
                 {
                     best_ratio = ratio;
-                    best_pair = std::make_pair(
-                        peaks[j], peaks[i]); // Store as (low, high)
-                #if DEBUG >= 2
-                    printf("Found matching peaks: (%.0f,%.0f) with ratio match "
-                        "(%f)\n",
-                        peaks[i], peaks[j], ratio / kPeakCentroidRatio);
+                    best_pair = std::make_pair(peaks[j], peaks[i]); // Store as (low, high)
+                #if DEBUG >= 1
+                    printf("Found matching peaks: (%.0f,%.0f) with ratio match (%f)\n", peaks[i], peaks[j], ratio / kPeakCentroidRatio);
                 #endif
                 }
             }
@@ -170,21 +162,18 @@ std::pair<double, double> FindMatchingPeaks1D(std::vector<double>& peaks)
     }
     else
     {
-        printf("No matching peaks found within tolerance (%f)\n",
-            kPeakRatioTolerance);
+        printf("No matching peaks found within tolerance (%f)\n", kPeakRatioTolerance);
     }
 
     return matching_peaks;
 }
 
-std::vector<std::pair<double, double>>
-FindMatchingPeaks2D(std::vector<std::vector<double>>& peaks)
+std::vector<std::pair<double, double>> FindMatchingPeaks2D(std::vector<std::vector<double>>& peaks)
 {
-    std::vector<std::pair<double, double>> all_matching_peaks_per_channel(
-        GainMatchConfig::kNumChannels);
+    std::vector<std::pair<double, double>> all_matching_peaks_per_channel(GainMatchConfig::kNumChannels);
     for (size_t ch = 0; ch < peaks.size(); ++ch)
     {
-    #if DEBUG >= 2
+    #if DEBUG >= 1
         printf("Finding matching peaks in channel %zu\n", ch);
     #endif
         auto channel_matching_peaks = FindMatchingPeaks1D(peaks[ch]);
@@ -227,8 +216,7 @@ std::pair<double, double> GetPeakCentroids1D(TH1D* hist, std::pair<double, doubl
         }
 
     #if (DEBUG >= 2)
-        printf("Fitted peak at %.3f with centroid %.3f (initial pos %.3f)\n",
-            peak_pos, mean, peak_pos);
+        printf("Fitted peak \"%.3f\" to %.3f", peak_pos, mean);
     #endif
         delete gaus;
     }
@@ -238,8 +226,7 @@ std::pair<double, double> GetPeakCentroids1D(TH1D* hist, std::pair<double, doubl
 
 std::vector<std::pair<double, double>> GetPeakCentroids2D(TH2D* hist, std::vector<std::pair<double, double>>& matched_peaks)
 {
-    std::vector<std::pair<double, double>> all_centroids_per_channel(
-        GainMatchConfig::kNumChannels);
+    std::vector<std::pair<double, double>> all_centroids_per_channel(GainMatchConfig::kNumChannels);
 
     for (size_t ch = 0; ch < matched_peaks.size(); ++ch)
     {
@@ -247,8 +234,7 @@ std::vector<std::pair<double, double>> GetPeakCentroids2D(TH2D* hist, std::vecto
         printf("Getting centroids for channel %zu\n", ch);
     #endif
         auto hist_proj = hist->ProjectionX("_px", ch + 1, ch + 1);
-        auto channel_centroids =
-            GetPeakCentroids1D(hist_proj, matched_peaks[ch]);
+        auto channel_centroids = GetPeakCentroids1D(hist_proj, matched_peaks[ch]);
         all_centroids_per_channel[ch] = channel_centroids;
         delete hist_proj;
     }
@@ -261,11 +247,7 @@ std::vector<std::pair<double, double>> CalculateGainMatchParameters(std::vector<
 
     if (ref_centroids.size() != inp_centroids.size())
     {
-        std::cerr
-            << "Error: Mismatched number of fitted peaks between reference "
-            "and input!"
-            << std::endl;
-        return all_gainmatch_params;
+        throw std::runtime_error("Mismatched number of fitted peaks between reference and input");
     }
 
     size_t n_peaks = std::min(ref_centroids.size(), inp_centroids.size());
@@ -284,7 +266,7 @@ std::vector<std::pair<double, double>> CalculateGainMatchParameters(std::vector<
     return all_gainmatch_params;
 }
 
-std::vector<std::pair<double, double>> LoadPeaksFromCAPKSFile(const std::string& filename)
+std::vector<std::pair<double, double>> LoadPeaksFromCAPKFile(const std::string& filename)
 {
     std::vector<std::pair<double, double>> centroids;
 
@@ -293,21 +275,20 @@ std::vector<std::pair<double, double>> LoadPeaksFromCAPKSFile(const std::string&
     {
         for (const auto& channel_data : module_data)
         {
-            if (channel_data.size() < 3)
+            if (channel_data.size() != 3)
             {
-                std::cerr << "Error: Not enough data in CAPKS file for channel!" << std::endl;
-                continue;
+                throw std::runtime_error("Unexpected data format in CAPK file. Correct format:\n channel_number low_peak_centroid high_peak_centroid\n");
             }
-            double offset = channel_data[1];
-            double gain = channel_data[2];
-            centroids.push_back(std::make_pair(offset, gain));
+            centroids.push_back(std::make_pair(channel_data[1], channel_data[2]));
+        #if DEBUG >= 2
+            printf("Loaded centroids from CAPK file for channel %d: (%.3f, %.3f)\n", static_cast<int>(channel_data[0]), channel_data[1], channel_data[2]);
+        #endif
         }
     }
-
     return centroids;
 }
 
-void WriteParamatersToFile(const std::string& output_filename, const std::vector<std::pair<double, double>>& params)
+void WriteParametersToFile(const std::string& output_filename, const std::vector<std::pair<double, double>>& params)
 {
     FILE* out_file = fopen(output_filename.c_str(), "w");
     if (!out_file)
@@ -320,8 +301,7 @@ void WriteParamatersToFile(const std::string& output_filename, const std::vector
     fprintf(out_file, "# Clover Cross\n");
     for (size_t ch = 0; ch < params.size(); ++ch)
     {
-        fprintf(out_file, "%zu\t%.10f\t%.10f\n", ch, params[ch].first,
-            params[ch].second);
+        fprintf(out_file, "%zu\t%.10f\t%.10f\n", ch, params[ch].first, params[ch].second);
     }
     fclose(out_file);
     printf("Gain match parameters written to %s!\n", output_filename.c_str());

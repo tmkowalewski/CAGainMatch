@@ -10,8 +10,8 @@ INC_DIR := include
 
 # Compiler and flags
 CXX      := g++
-CXXFLAGS := `root-config --cflags` -I./include
-LDFLAGS  := `root-config --libs` -lSpectrum
+CXXFLAGS := `root-config --cflags` -I./include -I~/.local/include
+LDFLAGS  := `root-config --libs` -lSpectrum -lCASort
 DEBUGFLAGS := -g -O0
 
 # Target executable names
@@ -36,7 +36,7 @@ $(TARGET): $(OBJECTS)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
 
-# Compile source files into object files
+# Compile source files into object filesex	
 # This rule is used for all .o files, which will be PIC due to -fPIC in CXXFLAGS
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(OBJ_DIR)

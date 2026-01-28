@@ -14,17 +14,12 @@
 // Project Includes
 #include "CAGainMatch.hpp"
 
-// Configuration
-#define DEBUG 0
-
 int main(int argc, char* argv[])
 {
     // Introduction
     if (argc != 4)
     {
-        std::cerr << "Usage: " << argv[0]
-            << " <reference file> <input file> <output file>"
-            << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <reference file> <input file> <output file>" << std::endl;
         return 1;
     }
 
@@ -57,9 +52,9 @@ int main(int argc, char* argv[])
         }
         reference_file_type = ReferenceFileType::ROOT;
     }
-    else if (reference_filename.rfind(".capks") != std::string::npos) // Clover Array Peaks File
+    else if (reference_filename.rfind(".capk") != std::string::npos) // Clover Array Peaks File
     {
-        printf("Reference file is a Clover Array Peaks file, will load peaks from it: %s\n", reference_filename.c_str());
+        printf("Reference file is a Clover Array Peak file, will load peaks from it when needed\n");
         reference_file_type = ReferenceFileType::CAPK;
     }
     else
@@ -122,36 +117,52 @@ int main(int argc, char* argv[])
     BackgroundSubtraction2D(inp_hist);
 
     // Find Peaks
-    printf("Finding peaks in reference histogram: %s\n", ref_hist->GetName());
     std::vector<std::vector<double>> ref_all_peaks;
     if (reference_file_type == ReferenceFileType::ROOT)
+    {
+        printf("Finding peaks in reference histogram: %s\n", ref_hist->GetName());
         ref_all_peaks = FindAllPeaks2D(ref_hist);
+    }
     printf("Finding peaks in input histogram: %s\n", inp_hist->GetName());
     auto inp_all_peaks = FindAllPeaks2D(inp_hist);
 
     // Find matching peaks based on expected centroid ratio
-    printf("Finding matching peaks in reference histogram...\n");
     std::vector<std::pair<double, double>> ref_matched_peaks;
     if (reference_file_type == ReferenceFileType::ROOT)
+    {
+        printf("Finding matching peaks in reference histogram...\n");
         ref_matched_peaks = FindMatchingPeaks2D(ref_all_peaks);
+    }
     printf("Finding matching peaks in input histogram...\n");
     auto inp_matched_peaks = FindMatchingPeaks2D(inp_all_peaks);
 
     // Fit the matched peaks to get more precise centroids
-    printf("Fitting matched peaks in reference histogram...\n");
     std::vector<std::pair<double, double>> ref_centroids;
     if (reference_file_type == ReferenceFileType::ROOT)
     {
+        printf("Fitting matched peaks in reference histogram...\n");
         ref_centroids = GetPeakCentroids2D(ref_hist, ref_matched_peaks);
     }
     else if (reference_file_type == ReferenceFileType::CAPK)
     {
-        ref_centroids = LoadPeaksFromCAPKSFile(reference_filename);
+        printf("Loading peak centroids from CAPK file: %s\n", reference_filename.c_str());
+        ref_centroids = LoadPeaksFromCAPKFile(reference_filename);
     }
 
 
     printf("Fitting matched peaks in input histogram...\n");
     auto inp_centroids = GetPeakCentroids2D(inp_hist, inp_matched_peaks);
+
+    printf("Obtained %zu reference centroid and %zu input centroid pairs.\n",
+        ref_centroids.size(), inp_centroids.size());
+    printf("Centroids (Reference, Input): \n");
+    for (size_t ch = 0; ch < inp_centroids.size(); ++ch)
+    {
+        printf("Channel %zu: (%.3f, %.3f) , (%.3f, %.3f)\n", ch,
+            ref_centroids[ch].first, ref_centroids[ch].second,
+            inp_centroids[ch].first, inp_centroids[ch].second);
+
+    }
 
     // Calculate Gain Match Parameters
     printf("Calculating gain match parameters...\n");
