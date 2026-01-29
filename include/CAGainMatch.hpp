@@ -15,7 +15,7 @@
 #include "CASort/CAUtilities.hpp"
 
 // Configuration
-#define DEBUG 1
+#define DEBUG 0
 
 namespace GainMatchConfig
 {
@@ -26,7 +26,7 @@ namespace GainMatchConfig
     };
 
     // Histogram Config
-    inline const char* kAmplitudeHistogramName = "clover_cross/cc_amp"; // Path to the amplitude histogram within the root file
+    inline const std::vector<std::string> kAmplitudeHistogramNames = { "clover_cross/cc_amp", "clover_back/cb_amp" }; // Path to the amplitude histogram within the root file
     inline constexpr unsigned int kNumChannels = 16; // Number of channels in the histogram
 
     // Background Subtraction Config
@@ -35,7 +35,7 @@ namespace GainMatchConfig
 
     // Peak Finding Config
     inline constexpr unsigned int kRebinFactor = 4; // Rebin factor for histograms
-    inline constexpr unsigned int kMaxPeaks = 10; // Maximum number of peaks to identify
+    inline constexpr unsigned int kMaxPeaks = 20; // Maximum number of peaks to identify
     inline constexpr std::pair<double, double> kPeakSearchRange = { 6000, 22000.0 }; // Bin range in which to search for peaks
     inline constexpr double kPeakSigma = 15.0; // Expected peak width (sigma) in bins
     inline constexpr double kPeakThreshold = 0.10; // Minimum height (as fraction of max) to consider a peak
@@ -96,14 +96,14 @@ std::vector<double> FindAllPeaks1D(TH1D* hist)
     }
     std::sort(all_peaks.begin(), all_peaks.end());
 
-#if DEBUG >= 2
-    printf("Found %u peak(s):\n", n_found); // Channel 0 is in bin 1
+    #if DEBUG >= 2
+    printf("[DEBUG] Found %u peak(s):\n", n_found); // Channel 0 is in bin 1
     for (size_t p = 0; p < all_peaks.size(); ++p)
     {
         printf("%.3f, ", all_peaks[p]); // For whatever reason we don't have to multiply by kRebinFactor here
     }
     printf("\n");
-#endif
+    #endif
 
     delete spectrum;
 
@@ -116,9 +116,9 @@ std::vector<std::vector<double>> FindAllPeaks2D(TH2D* hist)
 
     for (size_t ch = 0; ch < hist->GetNbinsY(); ++ch) // Loop over each channel
     {
-    #if DEBUG >= 2
-        printf("Finding peaks in channel %zu (bin %zu)\n", ch, ch + 1); // Channel 0 is in bin 1
-    #endif
+        #if DEBUG >= 2
+        printf("[DEBUG] Finding peaks in channel %zu (bin %zu)\n", ch, ch + 1); // Channel 0 is in bin 1
+        #endif
         auto hist_proj = hist->ProjectionX("_px", ch + 1, ch + 1);
         auto channel_peaks = FindAllPeaks1D(hist_proj);
         all_peaks_per_channel[ch] = channel_peaks;
@@ -149,9 +149,6 @@ std::pair<double, double> FindMatchingPeaks1D(std::vector<double>& peaks)
                 {
                     best_ratio = ratio;
                     best_pair = std::make_pair(peaks[j], peaks[i]); // Store as (low, high)
-                #if DEBUG >= 1
-                    printf("Found matching peaks: (%.0f,%.0f) with ratio match (%f)\n", peaks[i], peaks[j], ratio / kPeakCentroidRatio);
-                #endif
                 }
             }
         }
@@ -159,10 +156,6 @@ std::pair<double, double> FindMatchingPeaks1D(std::vector<double>& peaks)
     if (best_pair.first > 0 && best_pair.second > 0)
     {
         matching_peaks = best_pair;
-    }
-    else
-    {
-        printf("No matching peaks found within tolerance (%f)\n", kPeakRatioTolerance);
     }
 
     return matching_peaks;
@@ -173,10 +166,19 @@ std::vector<std::pair<double, double>> FindMatchingPeaks2D(std::vector<std::vect
     std::vector<std::pair<double, double>> all_matching_peaks_per_channel(GainMatchConfig::kNumChannels);
     for (size_t ch = 0; ch < peaks.size(); ++ch)
     {
-    #if DEBUG >= 1
-        printf("Finding matching peaks in channel %zu\n", ch);
-    #endif
+        using namespace GainMatchConfig;
+        #if DEBUG >= 1
+        #endif
         auto channel_matching_peaks = FindMatchingPeaks1D(peaks[ch]);
+        #if DEBUG >= 1
+        printf("[DEBUG] Found matching peaks: (%.0f,%.0f) with ratio match (%f)\n",
+            channel_matching_peaks.first, channel_matching_peaks.second,
+            (channel_matching_peaks.second / channel_matching_peaks.first) / GainMatchConfig::kPeakCentroidRatio);
+        #endif
+        if (channel_matching_peaks.first <= 0 || channel_matching_peaks.second <= 0)
+        {
+            printf("[WARN] Could not find matching peaks for channel %zu, no gain matching will be applied\n", ch);
+        }
         all_matching_peaks_per_channel[ch] = channel_matching_peaks;
     }
     return all_matching_peaks_per_channel;
@@ -215,9 +217,9 @@ std::pair<double, double> GetPeakCentroids1D(TH1D* hist, std::pair<double, doubl
             centroid_pair.second = mean;
         }
 
-    #if (DEBUG >= 2)
-        printf("Fitted peak \"%.3f\" to %.3f", peak_pos, mean);
-    #endif
+        #if (DEBUG >= 2)
+        printf("[DEBUG] Fitted peak \"%.3f\" to %.3f\n", peak_pos, mean);
+        #endif
         delete gaus;
     }
 
@@ -230,9 +232,9 @@ std::vector<std::pair<double, double>> GetPeakCentroids2D(TH2D* hist, std::vecto
 
     for (size_t ch = 0; ch < matched_peaks.size(); ++ch)
     {
-    #if DEBUG >= 2
-        printf("Getting centroids for channel %zu\n", ch);
-    #endif
+        #if DEBUG >= 2
+        printf("[DEBUG] Getting centroids for channel %zu\n", ch);
+        #endif
         auto hist_proj = hist->ProjectionX("_px", ch + 1, ch + 1);
         auto channel_centroids = GetPeakCentroids1D(hist_proj, matched_peaks[ch]);
         all_centroids_per_channel[ch] = channel_centroids;
@@ -247,7 +249,7 @@ std::vector<std::pair<double, double>> CalculateGainMatchParameters(std::vector<
 
     if (ref_centroids.size() != inp_centroids.size())
     {
-        throw std::runtime_error("Mismatched number of fitted peaks between reference and input");
+        throw std::runtime_error(Form("[ERROR] Mismatched number of fitted peaks between reference (%zu) and input (%zu)!", ref_centroids.size(), inp_centroids.size()));
     }
 
     size_t n_peaks = std::min(ref_centroids.size(), inp_centroids.size());
@@ -261,50 +263,36 @@ std::vector<std::pair<double, double>> CalculateGainMatchParameters(std::vector<
         double offset = ref_low - gain * input_low;
         all_gainmatch_params.push_back(std::make_pair(offset, gain));
 
-        printf("Channel %zu: Offset = %.6f, Gain = %.10f\n", i, offset, gain);
+        printf("[INFO] Channel %2d: Offset = %+.6f, Gain = %+.6f\n", i, offset, gain);
     }
     return all_gainmatch_params;
 }
 
-std::vector<std::pair<double, double>> LoadPeaksFromCAPKFile(const std::string& filename)
+std::vector<std::vector<std::pair<double, double>>> LoadPeaksFromCAPKFile(const std::string& filename)
 {
-    std::vector<std::pair<double, double>> centroids;
+    std::vector<std::vector<std::pair<double, double>>> centroids;
 
     auto raw_data = CAUtilities::ReadCAFile(filename);
-    for (const auto& module_data : raw_data)
+    std::cout << "Sections " << raw_data.size() << std::endl;
+    for (size_t md = 0; md < raw_data.size(); ++md)
     {
-        for (const auto& channel_data : module_data)
+        centroids.push_back(std::vector<std::pair<double, double>>());
+        std::cout << "Channels " << raw_data[md].size() << std::endl;
+        for (size_t ch = 0; ch < raw_data[md].size(); ++ch)
         {
-            if (channel_data.size() != 3)
+            auto& channel_data = raw_data[md][ch];
+
+            if (channel_data.size() != 3) // Channel Low_Peak High_Peak
             {
-                throw std::runtime_error("Unexpected data format in CAPK file. Correct format:\n channel_number low_peak_centroid high_peak_centroid\n");
+                throw std::runtime_error("[ERROR] Unexpected data format in CAPK file. Correct format:\n channel_number low_peak_centroid high_peak_centroid\n");
             }
-            centroids.push_back(std::make_pair(channel_data[1], channel_data[2]));
-        #if DEBUG >= 2
-            printf("Loaded centroids from CAPK file for channel %d: (%.3f, %.3f)\n", static_cast<int>(channel_data[0]), channel_data[1], channel_data[2]);
-        #endif
+            centroids[md].push_back(std::make_pair(channel_data[1], channel_data[2]));
+            #if DEBUG >= 2
+            printf("[DEBUG] Loaded centroids from CAPK file for channel %d: (%.3f, %.3f)\n", static_cast<int>(channel_data[0]), channel_data[1], channel_data[2]);
+            #endif
         }
     }
     return centroids;
-}
-
-void WriteParametersToFile(const std::string& output_filename, const std::vector<std::pair<double, double>>& params)
-{
-    FILE* out_file = fopen(output_filename.c_str(), "w");
-    if (!out_file)
-    {
-        std::cerr << "Error opening output file for writing" << std::endl;
-        return;
-    }
-
-    fprintf(out_file, "# Channel\tOffset\tGain\n");
-    fprintf(out_file, "# Clover Cross\n");
-    for (size_t ch = 0; ch < params.size(); ++ch)
-    {
-        fprintf(out_file, "%zu\t%.10f\t%.10f\n", ch, params[ch].first, params[ch].second);
-    }
-    fclose(out_file);
-    printf("Gain match parameters written to %s!\n", output_filename.c_str());
 }
 
 #endif // GAINMATCH_HPP
