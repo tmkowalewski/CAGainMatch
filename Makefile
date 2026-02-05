@@ -36,7 +36,7 @@ $(TARGET): $(OBJECTS)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
 
-# Compile source files into object filesex	
+# Compile source files into object files	
 # This rule is used for all .o files, which will be PIC due to -fPIC in CXXFLAGS
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(OBJ_DIR)

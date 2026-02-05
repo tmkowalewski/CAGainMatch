@@ -31,7 +31,7 @@ namespace GainMatchConfig
 
     // Background Subtraction Config
     inline constexpr unsigned int kBackgroundSmoothing = 50; // Smoothing parameter for background subtraction
-    inline const char* kBackgroundOptions = "Compton"; // Sigma for peak finding
+    inline constexpr const char* kBackgroundOptions = "Compton"; // Sigma for peak finding
 
     // Peak Finding Config
     inline constexpr unsigned int kRebinFactor = 4; // Rebin factor for histograms
@@ -46,7 +46,7 @@ namespace GainMatchConfig
     inline constexpr double kPeakRatioTolerance = 0.0025; // Acceptable deviation in ratio when matching peaks
 
     // Fitting Config
-    inline constexpr double kFitBounds = 3; // How many sigma to include in fit range
+    inline constexpr double kFitBounds = 3.0; // How many sigma to include in fit range
 
 } // namespace GainMatchConfig
 
