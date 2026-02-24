@@ -1,7 +1,7 @@
 // C++ includes
+#include <fstream>
 #include <iostream>
 #include <memory>
-#include <fstream>
 #include <sstream>
 
 // ROOT Includes
@@ -9,6 +9,7 @@
 #include <TFile.h>
 #include <TH2D.h>
 #include <TMath.h>
+#include <TROOT.h>
 #include <TSpectrum.h>
 
 // Project Includes
@@ -34,6 +35,8 @@ int main(int argc, char* argv[])
     printf("---------------------------------------------------\n");
 
     printf("[INFO] Gain matching started!\n");
+
+    gROOT->SetBatch(kTRUE); // Run in batch mode to avoid opening canvases
 
     using namespace GainMatchConfig;
 
@@ -181,17 +184,17 @@ int main(int argc, char* argv[])
     }
     for (size_t ch = 0; ch < kAmplitudeHistogramNames.size(); ++ch)
     {
-        #if DEBUG >= 2
+#if DEBUG >= 2
         printf("[DEBUG] Obtained %zu reference centroid and %zu input centroid pairs for histogram %s\n:",
-            ref_centroids.size(), inp_centroids.size(), kAmplitudeHistogramNames[ch].c_str());
+               ref_centroids.size(), inp_centroids.size(), kAmplitudeHistogramNames[ch].c_str());
         printf("[DEBUG] Channel\tReference Pair\tInput Pair\n");
         for (size_t c = 0; c < ref_centroids.size(); ++c)
         {
             printf("[DEBUG] %zu\t(%.3f, %.3f)\t(%.3f, %.3f)\n", c,
-                ref_centroids[c].first, ref_centroids[c].second,
-                inp_centroids[c].first, inp_centroids[c].second);
+                   ref_centroids[c].first, ref_centroids[c].second,
+                   inp_centroids[c].first, inp_centroids[c].second);
         }
-        #endif
+#endif
     }
     /* #endregion Fit precise Peak Centroids */
 
@@ -241,7 +244,7 @@ int main(int argc, char* argv[])
         for (size_t ch = 0; ch < params.size(); ++ch)
         {
             fprintf(out_file, "%2d\t% 14.10f\t% 14.10f\n", ch, params[ch].first,
-                params[ch].second);
+                    params[ch].second);
         }
     }
 
