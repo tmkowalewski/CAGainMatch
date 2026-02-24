@@ -263,7 +263,7 @@ std::vector<std::pair<double, double>> CalculateGainMatchParameters(std::vector<
         double offset = ref_low - gain * input_low;
         all_gainmatch_params.push_back(std::make_pair(offset, gain));
 
-        printf("[INFO] Channel %2d: Offset = %+.6f, Gain = %+.6f\n", i, offset, gain);
+        printf("[INFO] Channel %2ld: Offset = %+.6f, Gain = %+.6f\n", i, offset, gain);
     }
     return all_gainmatch_params;
 }

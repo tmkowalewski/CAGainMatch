@@ -243,7 +243,7 @@ int main(int argc, char* argv[])
         const auto& params = all_params[md];
         for (size_t ch = 0; ch < params.size(); ++ch)
         {
-            fprintf(out_file, "%2d\t% 14.10f\t% 14.10f\n", ch, params[ch].first,
+            fprintf(out_file, "%2ld\t% 14.10f\t% 14.10f\n", ch, params[ch].first,
                     params[ch].second);
         }
     }
